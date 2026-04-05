@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="電気点検">
+<title>電気設備点検表</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f4f3f0;
+  --surface: #ffffff;
+  --surface2: #f9f8f6;
+  --border: #e2e0db;
+  --border2: #d0cec8;
+  --text: #1a1917;
+  --text2: #6b6860;
+  --text3: #9e9b94;
+  --accent: #2563a8;
+  --accent-bg: #eaf1fb;
+  --accent-border: #b5d0f0;
+  --green: #1a6e3a;
+  --green-bg: #e8f5ee;
+  --red: #b91c1c;
+  --red-bg: #fef2f2;
+  --amber: #92400e;
+  --amber-bg: #fffbeb;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111110;
+    --surface: #1c1c1a;
+    --surface2: #242422;
+    --border: #2e2e2b;
+    --border2: #3a3a37;
+    --text: #f0ede8;
+    --text2: #9e9b94;
+    --text3: #6b6860;
+    --accent: #5b9bd5;
+    --accent-bg: #162035;
+    --accent-border: #2a4a75;
+    --green: #4ade80;
+    --green-bg: #0d2818;
+    --red: #f87171;
+    --red-bg: #2d1515;
+    --amber: #fbbf24;
+    --amber-bg: #2d1f08;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ===== SHELL ===== */
+#app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto;background:var(--bg);}
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;flex-shrink:0;}
+#header-title{font-size:15px;font-weight:600;letter-spacing:-0.3px;}
+#header-sub{font-size:11px;color:var(--text2);margin-top:1px;}
+#header-actions{display:flex;gap:8px;}
+.icon-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;}
+.icon-btn:active{opacity:0.7;}
+
+/* ===== TABS ===== */
+#tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
+#tabs::-webkit-scrollbar{display:none;}
+.tab{flex:1;min-width:72px;padding:10px 6px;text-align:center;font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ===== SCROLL AREA ===== */
+#content{flex:1;overflow-y:auto;padding:12px 12px 80px;-webkit-overflow-scrolling:touch;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ===== CARDS ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.card-header{padding:10px 14px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:13px;font-weight:600;color:var(--text);}
+.card-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+.card-body{padding:12px 14px;}
+
+/* ===== FIELDS ===== */
+.field-group{display:grid;gap:8px;}
+.field-group.cols2{grid-template-columns:1fr 1fr;}
+.field-group.cols3{grid-template-columns:1fr 1fr 1fr;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:0.3px;}
+.field input, .field select{height:38px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 10px;font-size:14px;background:var(--surface2);color:var(--text);width:100%;-webkit-appearance:none;transition:border-color .15s;}
+.field input:focus, .field select:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+.field input.filled{border-color:var(--green);background:var(--green-bg);}
+
+/* ===== DATE TABS ===== */
+.date-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;margin-bottom:12px;}
+.date-tabs::-webkit-scrollbar{display:none;}
+.date-tab{flex-shrink:0;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.date-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* ===== MIC ===== */
+.mic-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border);background:var(--surface2);}
+.mic-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex-shrink:0;transition:all .15s;}
+.mic-btn:active{transform:scale(0.93);}
+.mic-btn.listening{background:var(--red-bg);border-color:var(--red);animation:pulse 1.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,0.3);}50%{box-shadow:0 0 0 8px rgba(185,28,28,0);}}
+.mic-hint{flex:1;font-size:11px;color:var(--text3);line-height:1.5;}
+.mic-hint.active{color:var(--accent);}
+
+/* ===== HISTORY ===== */
+.hist-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}
+.hist-header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.hist-title{font-size:13px;font-weight:600;}
+.hist-meta{font-size:11px;color:var(--text2);margin-top:2px;}
+.hist-actions{display:flex;gap:6px;}
+.chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);}
+.chip.accent{background:var(--accent-bg);border-color:var(--accent-border);color:var(--accent);}
+.chip.danger{background:var(--red-bg);border-color:#fca5a5;color:var(--red);}
+
+/* ===== BOTTOM BAR ===== */
+#bottom-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:100;}
+.bar-btn{flex:1;height:44px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;}
+.bar-btn:active{opacity:0.75;}
+.bar-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.bar-btn.success{background:var(--green-bg);border-color:#86efac;color:var(--green);}
+
+/* ===== TOAST ===== */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 18px;border-radius:20px;font-size:13px;font-weight:500;opacity:0;transition:opacity .25s;z-index:999;white-space:nowrap;pointer-events:none;}
+#toast.show{opacity:1;}
+
+/* ===== INFO BADGE ===== */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.3px;}
+.badge.blue{background:var(--accent-bg);color:var(--accent);}
+.badge.green{background:var(--green-bg);color:var(--green);}
+
+/* ===== DIVIDER ===== */
+.divider{height:1px;background:var(--border);margin:10px 0;}
+.section-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin:14px 0 6px;}
+
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3);}
+.empty-state .icon{font-size:40px;margin-bottom:12px;}
+.empty-state p{font-size:13px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div>
+      <div id="header-title">電気設備点検表</div>
+      <div id="header-sub">総本山 680-6002 ｜ 令和8年</div>
+    </div>
+    <div id="header-actions">
+      <div class="icon-btn" onclick="showPage('history')" title="履歴">📋</div>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <div class="tab active" onclick="showPage('input')">入力</div>
+    <div class="tab" onclick="showPage('history')">履歴</div>
+  </div>
+
+  <div id="content">
+
+    <!-- ===== 入力ページ ===== -->
+    <div id="page-input" class="page active">
+
+      <!-- 担当者・基本情報 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">基本情報</div>
+            <div class="card-sub">点検日・担当者を入力</div>
+          </div>
+          <span class="badge blue">必須</span>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field">
+              <label>点検日</label>
+              <input type="date" id="f-date" oninput="markFilled(this)">
+            </div>
+            <div class="field">
+              <label>時間</label>
+              <input type="time" id="f-time" oninput="markFilled(this)">
+            </div>
+          </div>
+          <div class="field-group cols2">
+            <div class="field">
+              <label>天気</label>
+              <select id="f-weather" onchange="markFilled(this)">
+                <option value="">選択</option>
+                <option>晴</option>
+                <option>曇</option>
+                <option>晴・曇</option>
+                <option>雨</option>
+                <option>雪</option>
+                <option>晴・雨</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>点検担当者</label>
+              <input type="text" id="f-inspector" placeholder="氏名" oninput="markFilled(this)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 高圧受電盤 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">高圧受電盤</div>
+            <div class="card-sub">中電メーター・V・A・COSφ</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="section-label">中電メーター</div>
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>全日DM</label><input type="number" id="f-dm" step="0.001" placeholder="0.195" oninput="markFilled(this)"></div>
+            <div class="field"><label>累積DM</label><input type="number" id="f-ruiseki" step="0.01" placeholder="3.95" oninput="markFilled(this)"></div>
+          </div>
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>力率</label><input type="text" id="f-ritsuri" placeholder="FF" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="section-label">高圧受電盤</div>
+          <div class="field-group cols3">
+            <div class="field"><label>電圧 V</label><input type="number" id="f-hv-v" placeholder="6470" oninput="markFilled(this)"></div>
+            <div class="field"><label>電流 A</label><input type="number" id="f-hv-a" step="0.1" placeholder="22.5" oninput="markFilled(this)"></div>
+            <div class="field"><label>COSφ</label><input type="number" id="f-hv-cos" step="0.1" placeholder="93.4" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-kouatsu" onclick="toggleMic('kouatsu')">🎤</button>
+          <div class="mic-hint" id="hint-kouatsu">「電圧6470、電流22.5、力率93.4」</div>
+        </div>
+      </div>
+
+      <!-- 低圧照明配電盤 No.1 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧照明配電盤 No.1</div>
+            <div class="card-sub">3φ 300kVA Δ-Yo ｜ 定格952A</div>
+          </div>
+        </div>
+        <div class="card-body" id="body-teiatsu1">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-t1-v2" placeholder="172" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols2">
+            <div class="field"><label>R相</label><input type="number" id="f-t1-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-t1-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-t1-t" oninput="markFilled(this)"></div>
+            <div class="field"><label>N相</label><input type="number" id="f-t1-n" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-t1-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-t1-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-teiatsu1" onclick="toggleMic('teiatsu1')">🎤</button>
+          <div class="mic-hint" id="hint-teiatsu1">「2次電圧172、R相47、S相20、T相26、N相30」</div>
+        </div>
+      </div>
+
+      <!-- 低圧照明配電盤 No.2 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧照明配電盤 No.2</div>
+            <div class="card-sub">3φ 300kVA Δ-Yo ｜ 定格952A</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-t2-v2" placeholder="103" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols2">
+            <div class="field"><label>R相</label><input type="number" id="f-t2-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-t2-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-t2-t" oninput="markFilled(this)"></div>
+            <div class="field"><label>N相</label><input type="number" id="f-t2-n" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-t2-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-t2-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-teiatsu2" onclick="toggleMic('teiatsu2')">🎤</button>
+          <div class="mic-hint" id="hint-teiatsu2">「2次電圧103、R相9、S相5、T相7、N相0」</div>
+        </div>
+      </div>
+
+      <!-- 低圧舞台照明 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧舞台照明配電盤</div>
+            <div class="card-sub">3φ 500kVA Δ-Yo ｜ 定格1586A</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-bt-v2" placeholder="133" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols2">
+            <div class="field"><label>R相</label><input type="number" id="f-bt-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-bt-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-bt-t" oninput="markFilled(this)"></div>
+            <div class="field"><label>N相</label><input type="number" id="f-bt-n" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-bt-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-bt-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-butai" onclick="toggleMic('butai')">🎤</button>
+          <div class="mic-hint" id="hint-butai">「2次電圧133、R相31、S相28、T相32、N相20」</div>
+        </div>
+      </div>
+
+      <!-- 融雪・舞台 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧融雪・舞台設置</div>
+            <div class="card-sub">3φ 500kVA Δ-Δ ｜ 定格1375A</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-ys-v2" placeholder="205" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols3">
+            <div class="field"><label>R相</label><input type="number" id="f-ys-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-ys-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-ys-t" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-ys-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-ys-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-yusetsu" onclick="toggleMic('yusetsu')">🎤</button>
+          <div class="mic-hint" id="hint-yusetsu">「2次電圧205、R相172、S相170、T相166」</div>
+        </div>
+      </div>
+
+      <!-- 動力 No.1 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧動力配電盤 No.1</div>
+            <div class="card-sub">3φ 750kVA Δ-Yo ｜ 定格984A</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-d1-v2" placeholder="427" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols3">
+            <div class="field"><label>R相</label><input type="number" id="f-d1-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-d1-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-d1-t" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-d1-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-d1-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-doryoku1" onclick="toggleMic('doryoku1')">🎤</button>
+          <div class="mic-hint" id="hint-doryoku1">「2次電圧427、R相41、S相151、T相110」</div>
+        </div>
+      </div>
+
+      <!-- 動力 No.2 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">低圧動力配電盤 No.2</div>
+            <div class="card-sub">3φ 750kVA Δ-Yo ｜ 定格984A</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-group cols2" style="margin-bottom:8px;">
+            <div class="field"><label>2次電圧</label><input type="number" id="f-d2-v2" placeholder="928" oninput="markFilled(this)"></div>
+          </div>
+          <div class="section-label">2次電流</div>
+          <div class="field-group cols3">
+            <div class="field"><label>R相</label><input type="number" id="f-d2-r" oninput="markFilled(this)"></div>
+            <div class="field"><label>S相</label><input type="number" id="f-d2-s" oninput="markFilled(this)"></div>
+            <div class="field"><label>T相</label><input type="number" id="f-d2-t" oninput="markFilled(this)"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="field-group cols2">
+            <div class="field"><label>接地線電流(mA)</label><input type="number" id="f-d2-chi" step="0.1" oninput="markFilled(this)"></div>
+            <div class="field"><label>温度(℃)</label><input type="number" id="f-d2-temp" oninput="markFilled(this)"></div>
+          </div>
+        </div>
+        <div class="mic-row">
+          <button class="mic-btn" id="mic-doryoku2" onclick="toggleMic('doryoku2')">🎤</button>
+          <div class="mic-hint" id="hint-doryoku2">「2次電圧928、R相16、S相19、T相16」</div>
+        </div>
+      </div>
+
+    </div><!-- /page-input -->
+
+    <!-- ===== 履歴ページ ===== -->
+    <div id="page-history" class="page">
+      <div id="history-list"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <div id="bottom-bar">
+    <button class="bar-btn" onclick="clearForm()">🗑 クリア</button>
+    <button class="bar-btn success" onclick="saveRecord()">💾 保存</button>
+    <button class="bar-btn primary" onclick="exportExcel()">📊 Excel</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== STORAGE =====
+const STORAGE_KEY = 'denki_tenken_records';
+
+function loadRecords(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+function saveRecords(records){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+// ===== TOAST =====
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===== PAGE NAV =====
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const tabs=document.querySelectorAll('.tab');
+  if(name==='input') tabs[0].classList.add('active');
+  else tabs[1].classList.add('active');
+  if(name==='history') renderHistory();
+}
+
+// ===== FORM HELPERS =====
+function markFilled(el){ el.classList.toggle('filled', el.value!==''); }
+
+function getFormData(){
+  const g=id=>document.getElementById(id)?.value||'';
+  return {
+    date: g('f-date'), time: g('f-time'), weather: g('f-weather'),
+    inspector: g('f-inspector'),
+    dm: g('f-dm'), ruiseki: g('f-ruiseki'), ritsuri: g('f-ritsuri'),
+    hv_v: g('f-hv-v'), hv_a: g('f-hv-a'), hv_cos: g('f-hv-cos'),
+    t1_v2:g('f-t1-v2'),t1_r:g('f-t1-r'),t1_s:g('f-t1-s'),t1_t:g('f-t1-t'),t1_n:g('f-t1-n'),t1_chi:g('f-t1-chi'),t1_temp:g('f-t1-temp'),
+    t2_v2:g('f-t2-v2'),t2_r:g('f-t2-r'),t2_s:g('f-t2-s'),t2_t:g('f-t2-t'),t2_n:g('f-t2-n'),t2_chi:g('f-t2-chi'),t2_temp:g('f-t2-temp'),
+    bt_v2:g('f-bt-v2'),bt_r:g('f-bt-r'),bt_s:g('f-bt-s'),bt_t:g('f-bt-t'),bt_n:g('f-bt-n'),bt_chi:g('f-bt-chi'),bt_temp:g('f-bt-temp'),
+    ys_v2:g('f-ys-v2'),ys_r:g('f-ys-r'),ys_s:g('f-ys-s'),ys_t:g('f-ys-t'),ys_chi:g('f-ys-chi'),ys_temp:g('f-ys-temp'),
+    d1_v2:g('f-d1-v2'),d1_r:g('f-d1-r'),d1_s:g('f-d1-s'),d1_t:g('f-d1-t'),d1_chi:g('f-d1-chi'),d1_temp:g('f-d1-temp'),
+    d2_v2:g('f-d2-v2'),d2_r:g('f-d2-r'),d2_s:g('f-d2-s'),d2_t:g('f-d2-t'),d2_chi:g('f-d2-chi'),d2_temp:g('f-d2-temp'),
+    savedAt: new Date().toISOString()
+  };
+}
+
+function setFormData(d){
+  const s=(id,v)=>{ const el=document.getElementById(id); if(el){el.value=v||''; markFilled(el);} };
+  s('f-date',d.date); s('f-time',d.time); s('f-weather',d.weather); s('f-inspector',d.inspector);
+  s('f-dm',d.dm); s('f-ruiseki',d.ruiseki); s('f-ritsuri',d.ritsuri);
+  s('f-hv-v',d.hv_v); s('f-hv-a',d.hv_a); s('f-hv-cos',d.hv_cos);
+  ['t1','t2','bt'].forEach(p=>{
+    s('f-'+p+'-v2',d[p+'_v2']); s('f-'+p+'-r',d[p+'_r']); s('f-'+p+'-s',d[p+'_s']);
+    s('f-'+p+'-t',d[p+'_t']); s('f-'+p+'-n',d[p+'_n']); s('f-'+p+'-chi',d[p+'_chi']); s('f-'+p+'-temp',d[p+'_temp']);
+  });
+  ['ys','d1','d2'].forEach(p=>{
+    s('f-'+p+'-v2',d[p+'_v2']); s('f-'+p+'-r',d[p+'_r']); s('f-'+p+'-s',d[p+'_s']);
+    s('f-'+p+'-t',d[p+'_t']); s('f-'+p+'-chi',d[p+'_chi']); s('f-'+p+'-temp',d[p+'_temp']);
+  });
+}
+
+function clearForm(){
+  if(!confirm('入力内容をすべてクリアしますか？')) return;
+  document.querySelectorAll('input,select').forEach(el=>{el.value='';el.classList.remove('filled');});
+  showToast('クリアしました');
+}
+
+// ===== SAVE =====
+function saveRecord(){
+  const d=getFormData();
+  if(!d.date){ showToast('⚠️ 点検日を入力してください'); return; }
+  const records=loadRecords();
+  const id=Date.now().toString();
+  records.unshift({id, ...d});
+  saveRecords(records);
+  showToast('💾 保存しました（'+formatDate(d.date)+'）');
+}
+
+// ===== HISTORY =====
+function formatDate(dateStr){
+  if(!dateStr) return '日付不明';
+  const d=new Date(dateStr);
+  return (d.getMonth()+1)+'月'+d.getDate()+'日';
+}
+
+function renderHistory(){
+  const records=loadRecords();
+  const el=document.getElementById('history-list');
+  if(records.length===0){
+    el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>保存済みのデータがありません。<br>入力後に「保存」ボタンを押してください。</p></div>`;
+    return;
+  }
+  el.innerHTML=records.map(r=>`
+    <div class="hist-item">
+      <div class="hist-header">
+        <div>
+          <div class="hist-title">${formatDate(r.date)} ${r.weather||''}</div>
+          <div class="hist-meta">${r.inspector||'担当者未記入'} ｜ ${r.time||'--:--'}</div>
+        </div>
+        <div class="hist-actions">
+          <span class="chip accent" onclick="loadRecord('${r.id}')">読込</span>
+          <span class="chip" onclick="exportSingle('${r.id}')">Excel</span>
+          <span class="chip danger" onclick="deleteRecord('${r.id}')">削除</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadRecord(id){
+  const records=loadRecords();
+  const r=records.find(x=>x.id===id);
+  if(!r) return;
+  setFormData(r);
+  showPage('input');
+  showToast('📂 読み込みました（'+formatDate(r.date)+'）');
+}
+
+function deleteRecord(id){
+  if(!confirm('このデータを削除しますか？')) return;
+  const records=loadRecords().filter(x=>x.id!==id);
+  saveRecords(records);
+  renderHistory();
+  showToast('削除しました');
+}
+
+// ===== EXCEL EXPORT =====
+function buildRows(d){
+  return [
+    ['総本山 電気設備点検表（令和8年）　680-6002'],
+    [],
+    ['点検日',d.date,'時間',d.time,'天気',d.weather,'点検担当者',d.inspector],
+    [],
+    ['【高圧受電盤・中電メーター】'],
+    ['全日DM',d.dm,'累積DM',d.ruiseki,'力率',d.ritsuri],
+    ['電圧(V)',d.hv_v,'電流(A)',d.hv_a,'COSφ',d.hv_cos],
+    [],
+    ['【低圧照明配電盤 No.1　3φ 300kVA Δ-Yo　952A】'],
+    ['2次電圧',d.t1_v2],
+    ['R相',d.t1_r,'S相',d.t1_s,'T相',d.t1_t,'N相',d.t1_n],
+    ['接地線電流(mA)',d.t1_chi,'温度(℃)',d.t1_temp],
+    [],
+    ['【低圧照明配電盤 No.2　3φ 300kVA Δ-Yo　952A】'],
+    ['2次電圧',d.t2_v2],
+    ['R相',d.t2_r,'S相',d.t2_s,'T相',d.t2_t,'N相',d.t2_n],
+    ['接地線電流(mA)',d.t2_chi,'温度(℃)',d.t2_temp],
+    [],
+    ['【低圧舞台照明配電盤　3φ 500kVA Δ-Yo　1586A】'],
+    ['2次電圧',d.bt_v2],
+    ['R相',d.bt_r,'S相',d.bt_s,'T相',d.bt_t,'N相',d.bt_n],
+    ['接地線電流(mA)',d.bt_chi,'温度(℃)',d.bt_temp],
+    [],
+    ['【低圧融雪・舞台設置　3φ 500kVA Δ-Δ　1375A】'],
+    ['2次電圧',d.ys_v2],
+    ['R相',d.ys_r,'S相',d.ys_s,'T相',d.ys_t],
+    ['接地線電流(mA)',d.ys_chi,'温度(℃)',d.ys_temp],
+    [],
+    ['【低圧動力配電盤 No.1　3φ 750kVA Δ-Yo　984A】'],
+    ['2次電圧',d.d1_v2],
+    ['R相',d.d1_r,'S相',d.d1_s,'T相',d.d1_t],
+    ['接地線電流(mA)',d.d1_chi,'温度(℃)',d.d1_temp],
+    [],
+    ['【低圧動力配電盤 No.2　3φ 750kVA Δ-Yo　984A】'],
+    ['2次電圧',d.d2_v2],
+    ['R相',d.d2_r,'S相',d.d2_s,'T相',d.d2_t],
+    ['接地線電流(mA)',d.d2_chi,'温度(℃)',d.d2_temp],
+  ];
+}
+
+function exportExcel(){
+  const d=getFormData();
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(buildRows(d));
+  ws['!cols']=[{wch:24},{wch:12},{wch:14},{wch:12},{wch:14},{wch:12},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'点検記録');
+  const fname='電気設備点検表_'+(d.date||'未設定').replace(/-/g,'')+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  showToast('📊 Excelを保存しました');
+}
+
+function exportSingle(id){
+  const records=loadRecords();
+  const d=records.find(x=>x.id===id);
+  if(!d) return;
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(buildRows(d));
+  ws['!cols']=[{wch:24},{wch:12},{wch:14},{wch:12},{wch:14},{wch:12},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'点検記録');
+  XLSX.writeFile(wb,'電気設備点検表_'+(d.date||'').replace(/-/g,'')+'.xlsx');
+  showToast('📊 Excelを保存しました');
+}
+
+// ===== VOICE: 順番入力モード =====
+// 各セクションの入力欄を順番に定義
+const SECTION_FIELDS = {
+  kouatsu:  [{id:'f-hv-v',label:'電圧(V)'},{id:'f-hv-a',label:'電流(A)'},{id:'f-hv-cos',label:'COSφ'}],
+  teiatsu1: [{id:'f-t1-v2',label:'2次電圧'},{id:'f-t1-r',label:'R相'},{id:'f-t1-s',label:'S相'},{id:'f-t1-t',label:'T相'},{id:'f-t1-n',label:'N相'},{id:'f-t1-chi',label:'接地線電流(mA)'},{id:'f-t1-temp',label:'温度(℃)'}],
+  teiatsu2: [{id:'f-t2-v2',label:'2次電圧'},{id:'f-t2-r',label:'R相'},{id:'f-t2-s',label:'S相'},{id:'f-t2-t',label:'T相'},{id:'f-t2-n',label:'N相'},{id:'f-t2-chi',label:'接地線電流(mA)'},{id:'f-t2-temp',label:'温度(℃)'}],
+  butai:    [{id:'f-bt-v2',label:'2次電圧'},{id:'f-bt-r',label:'R相'},{id:'f-bt-s',label:'S相'},{id:'f-bt-t',label:'T相'},{id:'f-bt-n',label:'N相'},{id:'f-bt-chi',label:'接地線電流(mA)'},{id:'f-bt-temp',label:'温度(℃)'}],
+  yusetsu:  [{id:'f-ys-v2',label:'2次電圧'},{id:'f-ys-r',label:'R相'},{id:'f-ys-s',label:'S相'},{id:'f-ys-t',label:'T相'},{id:'f-ys-chi',label:'接地線電流(mA)'},{id:'f-ys-temp',label:'温度(℃)'}],
+  doryoku1: [{id:'f-d1-v2',label:'2次電圧'},{id:'f-d1-r',label:'R相'},{id:'f-d1-s',label:'S相'},{id:'f-d1-t',label:'T相'},{id:'f-d1-chi',label:'接地線電流(mA)'},{id:'f-d1-temp',label:'温度(℃)'}],
+  doryoku2: [{id:'f-d2-v2',label:'2次電圧'},{id:'f-d2-r',label:'R相'},{id:'f-d2-s',label:'S相'},{id:'f-d2-t',label:'T相'},{id:'f-d2-chi',label:'接地線電流(mA)'},{id:'f-d2-temp',label:'温度(℃)'}],
+};
+
+let recognition=null, activeSection=null, fieldIndex=0, isListening=false;
+
+function updateHint(section){
+  const fields=SECTION_FIELDS[section];
+  if(!fields) return;
+  const h=document.getElementById('hint-'+section);
+  if(!h) return;
+  if(!isListening || activeSection!==section){ h.textContent='🎤 マイクを押して順番に数値を読み上げてください'; h.classList.remove('active'); return; }
+  const current=fields[fieldIndex];
+  const total=fields.length;
+  if(current){
+    h.textContent=`📍 ${fieldIndex+1}/${total}：「${current.label}」を読み上げてください`;
+    h.classList.add('active');
+    // 対象フィールドをハイライト
+    fields.forEach((f,i)=>{
+      const el=document.getElementById(f.id);
+      if(el) el.style.outline = i===fieldIndex ? '2px solid var(--accent)' : '';
+    });
+  } else {
+    h.textContent='✅ このセクション完了！';
+    h.classList.remove('active');
+    fields.forEach(f=>{ const el=document.getElementById(f.id); if(el) el.style.outline=''; });
+  }
+}
+
+function toggleMic(section){
+  const supported='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
+  if(!supported){ showToast('⚠️ Chromeブラウザをお使いください'); return; }
+
+  // 同じセクションを再タップ → 停止
+  if(activeSection===section && isListening){ stopMic(); return; }
+  // 別セクション起動中 → 停止してから開始
+  if(isListening) stopMic();
+
+  activeSection=section;
+  fieldIndex=0;
+  isListening=true;
+  document.getElementById('mic-'+section).classList.add('listening');
+  updateHint(section);
+  listenNext(section);
+}
+
+function stopMic(){
+  if(recognition){ try{recognition.abort();}catch(e){} recognition=null; }
+  if(activeSection){
+    document.getElementById('mic-'+activeSection)?.classList.remove('listening');
+    const fields=SECTION_FIELDS[activeSection]||[];
+    fields.forEach(f=>{ const el=document.getElementById(f.id); if(el) el.style.outline=''; });
+    const h=document.getElementById('hint-'+activeSection);
+    if(h){ h.textContent='🎤 マイクを押して順番に数値を読み上げてください'; h.classList.remove('active'); }
+  }
+  isListening=false;
+  activeSection=null;
+}
+
+function listenNext(section){
+  if(!isListening || activeSection!==section) return;
+  const fields=SECTION_FIELDS[section];
+  if(!fields || fieldIndex>=fields.length){
+    showToast('✅ '+section+'の入力が完了しました');
+    stopMic();
+    return;
+  }
+  updateHint(section);
+
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();
+  recognition.lang='ja-JP';
+  recognition.continuous=false;
+  recognition.interimResults=false;
+  recognition.maxAlternatives=3;
+
+  recognition.onresult=(e)=>{
+    // 複数候補から数字を含むものを優先
+    let best='';
+    for(let k=0;k<e.results[0].length;k++){
+      const t=e.results[0][k].transcript;
+      if(/[\d]/.test(t)){ best=t; break; }
+      if(!best) best=t;
+    }
+    const num=extractNumberFromSpeech(best);
+    if(num!==null){
+      const field=fields[fieldIndex];
+      const el=document.getElementById(field.id);
+      if(el){ el.value=num; markFilled(el); el.style.outline=''; }
+      showToast(`✅ ${field.label}：${num}`);
+      fieldIndex++;
+      // 少し間を置いて次の欄へ
+      setTimeout(()=>listenNext(section), 600);
+    } else {
+      // 数字が取れなかった → 同じ欄を再試行
+      showToast(`⚠️ 聞き取れませんでした。もう一度「${fields[fieldIndex].label}」を読み上げてください`);
+      setTimeout(()=>listenNext(section), 500);
+    }
+  };
+
+  recognition.onerror=(e)=>{
+    if(e.error==='aborted') return;
+    if(e.error==='no-speech'){
+      // 無音タイムアウト → 同じ欄を再試行
+      setTimeout(()=>listenNext(section), 300);
+      return;
+    }
+    showToast('⚠️ エラー: '+e.error);
+    stopMic();
+  };
+
+  recognition.onend=()=>{
+    // onresultで処理済みの場合はonendは無視（listenNextがすでに呼ばれている）
+  };
+
+  try{ recognition.start(); } catch(e){ stopMic(); }
+}
+
+function extractNumberFromSpeech(text){
+  // 全角数字 → 半角
+  text=text.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  // 日本語数字変換
+  const kanjiMap={'零':0,'〇':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'百':100,'千':1000,'万':10000};
+  // まず数字列を直接抽出（小数点対応）
+  const m=text.match(/([\d]+\.[\d]+|[\d]+)/);
+  if(m) return m[1];
+  // 漢数字変換を試みる
+  let num=0, tmp=0;
+  let found=false;
+  for(const c of text){
+    if(kanjiMap[c]!==undefined){
+      found=true;
+      const v=kanjiMap[c];
+      if(v>=10){ tmp=tmp===0?v:tmp*v; if(v>=1000){num+=tmp;tmp=0;} }
+      else tmp=tmp*10+v;
+    }
+  }
+  if(found){ num+=tmp; return String(num); }
+  return null;
+}
+
+// ===== INIT =====
+document.getElementById('f-date').valueAsDate = new Date();
+</script>
+</body>
+</html>
